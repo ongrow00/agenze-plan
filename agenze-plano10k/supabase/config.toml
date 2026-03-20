@@ -1,0 +1,5 @@
+# https://supabase.com/docs/guides/functions/function-configuration
+# Quiz público: o front chama sem sessão; segredo fica só na função (service role + Gemini).
+
+[functions.generate-plan]
+verify_jwt = false
