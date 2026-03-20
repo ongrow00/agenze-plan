@@ -149,7 +149,7 @@ export const PROFILE_NAMES: Record<ProfileId, string> = {
 }
 
 export const DIMENSION_LABELS: Record<keyof DimensionScore, string> = {
-  situacao: 'Situação Atual',
+  situacao: 'Níveis de experiência',
   tecnico: 'Técnico',
   comercial: 'Comercial',
   copy: 'Copy & Criativo',
