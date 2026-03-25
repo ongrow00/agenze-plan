@@ -1,6 +1,7 @@
 import { COURSES } from './courses.ts'
 import { inferPilar } from './inferPilar.ts'
 import { getWeeklyLimits } from './planLimits.ts'
+import { electiveCatalog, mandatoryCourses } from './planEnrich.ts'
 
 export interface ScorePayload {
   dimensions: { situacao: number; tecnico: number; comercial: number; copy: number; operacao: number | null }
@@ -15,8 +16,8 @@ export interface ScorePayload {
   mainBlock: string
 }
 
-export function buildCourseCatalogText(): string {
-  return COURSES.map((c, i) => {
+function buildCourseCatalogTextForElectives(electives: typeof COURSES): string {
+  return electives.map((c, i) => {
     const p = inferPilar(c.trilha)
     return `[${i + 1}] Pilar: ${p} | ${c.titulo} | Trilha: ${c.trilha} | ${c.sinopse} | Link: ${c.link}`
   }).join('\n')
@@ -45,6 +46,10 @@ export function buildPrompt(score: ScorePayload, name: string, answersSummary: s
   const horasLabels = ['menos de 2h/dia', '2-4h/dia', '4-6h/dia', '6h+ por dia']
 
   const wl = getWeeklyLimits(score.horasDisponiveis)
+  const electives = electiveCatalog(score, COURSES)
+  const mandatoryN = mandatoryCourses(COURSES).length
+  const electiveMin = Math.max(35 - mandatoryN, 1)
+  const electiveMax = 72 - mandatoryN
 
   const answersBlock =
     answersSummary.trim().length > 0
@@ -92,22 +97,23 @@ ${commercialGapDirective(score)}
 Com base na disponibilidade **${horasLabels[score.horasDisponiveis] ?? 'informada'}**:
 
 - **Por semana:** entre **${wl.aulasMin} e ${wl.aulasMax} aulas** no catálogo e entre **${wl.implsMin} e ${wl.implsMax} itens** no checklist de implementação (\`impls\`).
-- **Total do plano:** entre **40 e 65 aulas** no conjunto das 12 semanas.
+- **Aulas eletivas (só o que você escolhe agora):** entre **${electiveMin} e ${electiveMax}** aulas do catálogo eletivo abaixo. O sistema acrescentará depois, automaticamente, **${mandatoryN} aulas obrigatórias** (incluindo onboarding "Comece por aqui") para formar o plano final (~35–72 aulas no total).
+- A biblioteca da Agenze tem **${COURSES.length} aulas** no total; parte delas é **Exclusivo Pro** ou obrigatória e **não aparece nesta lista** — não tente incluir o que não está no catálogo eletivo.
 - Ajuste o número de \`impls\` à **necessidade da semana** (pode ser mais itens em semanas comerciais densas, sem ultrapassar ${wl.implsMax} salvo se for indispensável e coerente com as horas).
 
-## CATÁLOGO DE AULAS (${COURSES.length} aulas)
+## CATÁLOGO ELETIVO (${electives.length} aulas)
 
-Cada linha indica **Pilar** inferido da trilha (comercial, técnico, copy, operação, outro). Use para balancear o plano.
+Somente estas linhas podem ser usadas como \`aulas\`. Cada linha indica **Pilar** inferido da trilha (comercial, técnico, copy, operação, outro).
 
-${buildCourseCatalogText()}
+${buildCourseCatalogTextForElectives(electives)}
 
 ## INSTRUÇÕES
 
-1. Selecione entre **40 e 65** aulas do catálogo que fazem sentido para esse perfil específico.
-2. Distribua as aulas em **12 semanas**, em **3 a 5 fases** temáticas.
+1. Selecione entre **${electiveMin} e ${electiveMax}** aulas **eletivas** do catálogo acima (perfil ${score.profileId}: ${score.profileName}).
+2. Distribua as aulas eletivas em **12 semanas**, em **3 a 5 fases** temáticas.
 3. Em **cada semana**, inclua **implementações práticas** (\`impls\`: ações concretas, não só estudo). Quantidade variável conforme a necessidade, **dentro** dos limites de carga.
 4. O ritmo deve respeitar a disponibilidade de horas por dia e os limites de aulas/semana e impls/semana.
-5. Use os links **EXATOS** do catálogo — não invente links nem títulos inexistentes.
+5. Use os links **EXATOS** do catálogo eletivo — não invente links nem títulos inexistentes. **Não** inclua aulas marcadas como básicas para iniciantes se elas não estiverem no catálogo (para o seu perfil elas foram omitidas de propósito).
 
 ## FORMATO DE RESPOSTA
 
@@ -116,8 +122,8 @@ Responda APENAS com JSON válido, sem markdown, sem explicações. Estrutura exa
 {
   "profileId": "${score.profileId}",
   "profileName": "${score.profileName}",
-  "diagnosticText": "texto de 2-3 frases explicando o diagnóstico personalizado",
-  "aulaCount": <número total de aulas selecionadas>,
+  "diagnosticText": "texto de 2-3 frases explicando o diagnóstico personalizado (pode mencionar que a biblioteca tem ${COURSES.length} aulas e que o plano personalizado combina eletivas + obrigatórias)",
+  "aulaCount": <número de aulas ELETIVAS listadas abaixo — deve bater com a soma das aulas em todas as semanas>,
   "phases": [
     {
       "id": "phase0",

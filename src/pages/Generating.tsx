@@ -4,11 +4,12 @@ import { ReloadIcon } from '@radix-ui/react-icons'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Navbar } from '@/components/layout/Navbar'
 import { useQuizStore } from '@/store/quizStore'
+import { LIBRARY_LESSON_COUNT } from '@/data/courses'
 
 const PROGRESS_STEPS = [
   'Analisando seu diagnóstico…',
   'Salvando seu perfil…',
-  'Consultando o catálogo de 136 aulas…',
+  `Consultando o catálogo de ${LIBRARY_LESSON_COUNT} aulas…`,
   'Gerando seu plano com IA…',
   'Organizando fases e semanas…',
   'Finalizando seu plano…',

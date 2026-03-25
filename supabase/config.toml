@@ -3,3 +3,9 @@
 
 [functions.generate-plan]
 verify_jwt = false
+
+[functions.lastlink-webhook]
+verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false

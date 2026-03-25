@@ -85,7 +85,17 @@ export function Welcome() {
               Cria Novo Plano
               <ArrowRightIcon />
             </Button>
-            <Button size="4" variant="outline" style={{ ...btnStyle, flex: 1 }} onClick={() => setAccessOpen(true)}>
+            <Button
+              size="4"
+              variant="outline"
+              style={{
+                ...btnStyle,
+                flex: 1,
+                backgroundColor: '#ffffff',
+                color: '#0f172a',
+              }}
+              onClick={() => setAccessOpen(true)}
+            >
               Acessar existente
             </Button>
           </Flex>

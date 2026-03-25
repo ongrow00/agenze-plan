@@ -20,6 +20,8 @@ import { ProgressBar, DualProgress } from '@/components/ui/ProgressBar'
 import { TaskBadge } from '@/components/ui/Badge'
 import { Navbar } from '@/components/layout/Navbar'
 import type { DimensionScore, Plan, PlanPhase, PlanWeek, QuizAnswers, ScoreResult } from '@/types'
+import { resolveLessonHref } from '@/lib/lessonUrl'
+import { LIBRARY_LESSON_COUNT } from '@/data/courses'
 
 /** Reconstrói o score a partir do lead no Supabase (quando o quizStore foi limpo ao sair do plano). */
 function buildScoreFromLead(
@@ -169,8 +171,11 @@ function WeekBlock({ week, planId, phaseIndex, weekIndex }: { week: PlanWeek; pl
                 </Text>
               </Flex>
               <Flex direction="column" gap="2">
-                {week.aulas.map((aula, i) => (
-                  <label
+                {week.aulas.map((aula, i) => {
+                  const lessonHref = resolveLessonHref(aula.link)
+                  const aulaCbId = `aula-${planId}-${week.id}-${i}`
+                  return (
+                  <div
                     key={i}
                     style={{
                       display: 'flex',
@@ -179,10 +184,10 @@ function WeekBlock({ week, planId, phaseIndex, weekIndex }: { week: PlanWeek; pl
                       padding: '10px 12px',
                       borderRadius: 'var(--radius-2)',
                       background: 'var(--gray-2)',
-                      cursor: 'pointer',
                     }}
                   >
                     <Checkbox.Root
+                      id={aulaCbId}
                       checked={checkedAulas.includes(i)}
                       onCheckedChange={() => toggleAula(planId, week.id, i)}
                       style={{
@@ -202,11 +207,18 @@ function WeekBlock({ week, planId, phaseIndex, weekIndex }: { week: PlanWeek; pl
                         <CheckIcon style={{ color: '#fff', width: 10, height: 10 }} />
                       </Checkbox.Indicator>
                     </Checkbox.Root>
-                    <Flex style={{ flex: 1, minWidth: 0 }} align="center" gap="2">
+                    <label
+                      htmlFor={aulaCbId}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        cursor: 'pointer',
+                        margin: 0,
+                      }}
+                    >
                       <Text
                         size="2"
                         style={{
-                          flex: 1,
                           color: 'var(--gray-12)',
                           textDecoration: checkedAulas.includes(i) ? 'line-through' : 'none',
                           opacity: checkedAulas.includes(i) ? 0.5 : 1,
@@ -215,8 +227,8 @@ function WeekBlock({ week, planId, phaseIndex, weekIndex }: { week: PlanWeek; pl
                       >
                         {aula.title}
                       </Text>
-                    </Flex>
-                    {aula.link ? (
+                    </label>
+                    {lessonHref ? (
                       <Text
                         size="1"
                         weight="bold"
@@ -224,10 +236,9 @@ function WeekBlock({ week, planId, phaseIndex, weekIndex }: { week: PlanWeek; pl
                         style={{ flexShrink: 0, fontFamily: 'Inter, sans-serif' }}
                       >
                         <a
-                          href={aula.link}
+                          href={lessonHref}
                           target="_blank"
                           rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
                           style={{
                             textDecoration: 'none',
                             display: 'inline-flex',
@@ -258,8 +269,9 @@ function WeekBlock({ week, planId, phaseIndex, weekIndex }: { week: PlanWeek; pl
                         Ver aula
                       </Text>
                     )}
-                  </label>
-                ))}
+                  </div>
+                  )
+                })}
               </Flex>
             </Box>
           )}
@@ -615,7 +627,11 @@ export function Result() {
           {/* KPI Grid */}
           <Grid columns="2" gap="3" mb="5" className="animate-fade-up delay-200">
             <KpiCard label="Meta da jornada" value="R$10.000/mês" />
-            <KpiCard label="Aulas selecionadas" value={`${plan.aulaCount}`} sub="de 136 disponíveis" />
+            <KpiCard
+              label="Aulas selecionadas"
+              value={`${plan.aulaCount}`}
+              sub={`de ${plan.libraryLessonCount ?? LIBRARY_LESSON_COUNT} na biblioteca`}
+            />
             {displayScore && (
               <>
                 <KpiCard

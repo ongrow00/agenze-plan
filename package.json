@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "sync:courses": "node scripts/sync-courses.mjs",
-    "prebuild": "npm run sync:courses",
+    "build:courses": "python3 scripts/build-courses-from-csv.py && npm run sync:courses",
+    "prebuild": "npm run build:courses",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

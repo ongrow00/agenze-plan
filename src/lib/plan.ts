@@ -1,4 +1,5 @@
 import type { ScoreResult, Plan, PlanPhase, PlanWeek, PlanAula, PlanImpl, TaskType } from '@/types'
+import { resolveLessonHref } from '@/lib/lessonUrl'
 
 /** Normaliza o JSON do plano retornado pela Edge Function (mesma forma que o cliente esperava do Gemini). */
 export function normalizePlanPayload(data: unknown, score: ScoreResult): Plan {
@@ -18,10 +19,12 @@ export function normalizePlanPayload(data: unknown, score: ScoreResult): Plan {
           revenue: week.revenue as string | undefined,
           aulas: ((week.aulas ?? []) as unknown[]).map((a: unknown) => {
             const x = a as Record<string, unknown>
+            const raw = x.link as string | undefined
+            const link = resolveLessonHref(raw) ?? undefined
             return {
               title: (x.title as string) ?? '',
               duration: (x.duration as string) ?? '45 min',
-              link: x.link as string | undefined,
+              link,
             } satisfies PlanAula
           }),
           impls: ((week.impls ?? []) as unknown[]).map((impl: unknown) => {
@@ -45,6 +48,7 @@ export function normalizePlanPayload(data: unknown, score: ScoreResult): Plan {
     aulaCount:
       (d.aulaCount as number | undefined) ??
       phases.flatMap((p) => p.weeks).flatMap((w) => w.aulas).length,
+    libraryLessonCount: d.libraryLessonCount as number | undefined,
     diagnosticText: (d.diagnosticText as string) ?? '',
     phases,
   }

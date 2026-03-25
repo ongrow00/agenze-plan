@@ -68,6 +68,8 @@ export interface Plan {
   profileId: ProfileId
   profileName: string
   aulaCount: number
+  /** Total de aulas na biblioteca Agenze (inclui Pro); definido na geração do plano. */
+  libraryLessonCount?: number
   phases: PlanPhase[]
   diagnosticText: string
 }

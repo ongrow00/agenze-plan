@@ -2,11 +2,13 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { GoogleGenAI } from 'npm:@google/genai'
 import { COURSES } from './courses.ts'
 import { buildPrompt, type ScorePayload } from './prompt.ts'
+import { electiveBounds, electiveCatalog, enrichPlan } from './planEnrich.ts'
 import {
   buildAllowedLinkSet,
   buildLessonKeyToCanonicalMap,
   normalizePlanLinks,
-  validatePlan,
+  validateAiPlan,
+  validateEnrichedPlan,
 } from './validate.ts'
 
 const corsHeaders = {
@@ -88,8 +90,22 @@ Deno.serve(async (req) => {
     const summaryText = typeof answersSummary === 'string' ? answersSummary : ''
     let prompt = buildPrompt(score, contact.name, summaryText)
 
-    const allowedLinks = buildAllowedLinkSet(COURSES.map((c) => c.link))
+    const electives = electiveCatalog(score, COURSES)
+    const allowedElectiveLinks = buildAllowedLinkSet(electives.map((c) => c.link))
+    const { min: electiveMin, max: electiveMax } = electiveBounds(COURSES)
     const lessonKeyToCanonical = buildLessonKeyToCanonicalMap(COURSES)
+
+    const runPipeline = (raw: string) => {
+      const p = parsePlan(raw)
+      normalizePlanLinks(p, lessonKeyToCanonical)
+      const vAi = validateAiPlan(p, allowedElectiveLinks, electiveMin, electiveMax)
+      if (!vAi.ok) return { plan: null as unknown, errors: vAi.errors }
+      enrichPlan(p, score, COURSES)
+      normalizePlanLinks(p, lessonKeyToCanonical)
+      const vEn = validateEnrichedPlan(p, COURSES)
+      if (!vEn.ok) return { plan: null as unknown, errors: vEn.errors }
+      return { plan: p, errors: [] as string[] }
+    }
 
     let response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -97,27 +113,24 @@ Deno.serve(async (req) => {
       config: { temperature: 0.65, maxOutputTokens: 32768 },
     })
 
-    let plan = parsePlan(response.text ?? '')
-    normalizePlanLinks(plan, lessonKeyToCanonical)
-    let validation = validatePlan(plan, allowedLinks)
-
-    if (!validation.ok) {
-      console.warn('generate-plan: validação falhou, tentando correção', validation.errors)
+    let out = runPipeline(response.text ?? '')
+    if (!out.plan) {
+      console.warn('generate-plan: validação falhou, tentando correção', out.errors)
       const fixPrompt =
         prompt +
-        `\n\n## CORREÇÃO OBRIGATÓRIA\nA resposta anterior tinha problemas:\n${validation.errors.map((e) => `- ${e}`).join('\n')}\n\nGere NOVAMENTE o JSON completo e válido, corrigindo todos os itens. Use apenas links que existem literalmente no catálogo. Total de aulas entre 40 e 65.`
+        `\n\n## CORREÇÃO OBRIGATÓRIA\nA resposta anterior tinha problemas:\n${out.errors.map((e) => `- ${e}`).join('\n')}\n\nGere NOVAMENTE o JSON completo e válido. Use **apenas** links do catálogo eletivo. Quantidade de aulas **eletivas** entre ${electiveMin} e ${electiveMax} (o sistema acrescenta depois as obrigatórias e o onboarding "Comece por aqui").`
       response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: fixPrompt,
         config: { temperature: 0.32, maxOutputTokens: 32768 },
       })
-      plan = parsePlan(response.text ?? '')
-      normalizePlanLinks(plan, lessonKeyToCanonical)
-      validation = validatePlan(plan, allowedLinks)
-      if (!validation.ok) {
-        throw new Error(`Plano rejeitado: ${validation.errors.join(' | ')}`)
+      out = runPipeline(response.text ?? '')
+      if (!out.plan) {
+        throw new Error(`Plano rejeitado: ${out.errors.join(' | ')}`)
       }
     }
+
+    const plan = out.plan
 
     const { error: planError } = await sb
       .from('plans')
